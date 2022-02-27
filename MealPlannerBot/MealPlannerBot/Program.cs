@@ -1,42 +1,68 @@
 ﻿using System;
-using System.Configuration;
 using System.Threading;
 using System.Threading.Tasks;
 using Telegram.Bot;
-using Telegram.Bot.Args;
+using Telegram.Bot.Exceptions;
 using Telegram.Bot.Extensions.Polling;
 using Telegram.Bot.Types;
+using Telegram.Bot.Types.Enums;
+using System.Configuration;
 
-namespace MealPlannerBot
+var botClient = new TelegramBotClient(ConfigurationManager.AppSettings["BotToken"]);    
+using var cts = new CancellationTokenSource();
+
+
+var receiverOptions = new ReceiverOptions
 {
-    public static class Program
-    {
-        private static TelegramBotClient Bot = new TelegramBotClient(ConfigurationManager.AppSettings.Get("ApiKey"));
+    AllowedUpdates = { } 
+};
 
-        public static async Task Main()
-        {
-            Bot = new TelegramBotClient(ConfigurationManager.AppSettings.Get("ApiKey"));
+botClient.StartReceiving(
+    HandleUpdateAsync,
+    HandleErrorAsync,
+    receiverOptions,
+    cancellationToken: cts.Token);
 
-            User me = await Bot.GetMeAsync();
-            Console.Title = me.Username ?? "My awesome Bot";
+var mealBot = await botClient.GetMeAsync();
 
-            using var cts = new CancellationTokenSource();
+Console.WriteLine($"Start listening for @{mealBot.FirstName}");
+Console.ReadLine();
 
-            // StartReceiving does not block the caller thread. Receiving is done on the ThreadPool.
-            ReceiverOptions receiverOptions = new() { AllowedUpdates = { } };
-            Bot.StartReceiving(Handler)
-            //Bot.StartReceiving(Handlers.HandleUpdateAsync,
-            //                   Handlers.HandleErrorAsync,
-            //                   receiverOptions,
-            //                   cts.Token);
+// Send cancellation request to stop bot
+cts.Cancel();
 
-            Console.WriteLine($"Start listening for @{me.Username}");
-            Console.ReadLine();
+async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, CancellationToken cancellationToken)
+{
+    // Only process Message updates: https://core.telegram.org/bots/api#message
+    if (update.Type != UpdateType.Message)
+        return;
+    // Only process text messages
+    if (update.Message!.Type != MessageType.Text)
+        return;
 
-            // Send cancellation request to stop bot
-            cts.Cancel();
-        }
-    }
+    var chatId = update.Message.Chat.Id;
+    var messageText = update.Message.Text;
+    var username = update.Message.Chat.FirstName;
+
+    Console.WriteLine($"Received a '{messageText}' message in chat {chatId}. from user {username}");
+
+    Message sentMessage = await botClient.SendTextMessageAsync(
+    chatId: chatId,
+    text: "You said:\n" + messageText,
+    cancellationToken: cancellationToken);
+
+
 }
 
-    
+Task HandleErrorAsync(ITelegramBotClient botClient, Exception exception, CancellationToken cancellationToken)
+{
+    var ErrorMessage = exception switch
+    {
+        ApiRequestException apiRequestException
+            => $"Telegram API Error:\n[{apiRequestException.ErrorCode}]\n{apiRequestException.Message}",
+        _ => exception.ToString()
+    };
+
+    Console.WriteLine(ErrorMessage);
+    return Task.CompletedTask;
+}
