@@ -8,7 +8,7 @@ using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using System.Configuration;
 
-var botClient = new TelegramBotClient(ConfigurationManager.AppSettings["BotToken"]);    
+var botClient = new TelegramBotClient(token : ConfigurationManager.AppSettings["BotToken"]);    
 using var cts = new CancellationTokenSource();
 
 
@@ -44,12 +44,37 @@ async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, Cancel
     var messageText = update.Message.Text;
     var username = update.Message.Chat.FirstName;
 
-    Console.WriteLine($"Received a '{messageText}' message in chat {chatId}. from user {username}");
+    if (messageText.StartsWith("/addrecipe"))
+    {
+        var recipeStringArray = messageText.Substring(10).Split('-');
+        
+        if (recipeStringArray.Length > 2 || messageText == "/addrecipe")
+        {
+            Message IncorrectAddRecipeResponse = await botClient.SendTextMessageAsync(
+            chatId: chatId,
+            text: "Incorrect format, please stick to RecipeName - Ingredient1, Ingredient2, Ingredient3 when using AddRecipe Command",
+            cancellationToken: cancellationToken);
+            return;
+        }
 
-    Message sentMessage = await botClient.SendTextMessageAsync(
-    chatId: chatId,
-    text: "You said:\n" + messageText,
-    cancellationToken: cancellationToken);
+        var recipeName = recipeStringArray[0];
+        var ingredientList = recipeStringArray[1].Split(',').ToList();
+        Message AddRecipeResponse = await botClient.SendTextMessageAsync(
+        chatId: chatId,
+        text: "Adding Recipe, please enter ingredients now.",
+        cancellationToken: cancellationToken);
+    }
+    else
+    {
+        Console.WriteLine($"Received a '{messageText}' message in chat {chatId}. from user {username}");
+
+        Message sentMessage = await botClient.SendTextMessageAsync(
+        chatId: chatId,
+        text: "You said:\n" + messageText,
+        cancellationToken: cancellationToken);
+
+    }
+
 
 
 }
