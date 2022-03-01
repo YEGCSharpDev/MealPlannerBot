@@ -7,6 +7,7 @@ using Telegram.Bot.Extensions.Polling;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using System.Configuration;
+using static MealPlannerBot.DataAccess;
 
 var botClient = new TelegramBotClient(token : ConfigurationManager.AppSettings["BotToken"]);    
 using var cts = new CancellationTokenSource();
@@ -59,10 +60,28 @@ async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, Cancel
 
         var recipeName = recipeStringArray[0];
         var ingredientList = recipeStringArray[1].Split(',').ToList();
+
+        Message AddIngredientResponse = await botClient.SendTextMessageAsync(
+        chatId: chatId,
+        text: "Adding Ingredients",
+        cancellationToken: cancellationToken);
+
+        InsertIngredients(ingredientList);
+
         Message AddRecipeResponse = await botClient.SendTextMessageAsync(
         chatId: chatId,
-        text: "Adding Recipe, please enter ingredients now.",
+        text: "Adding Recipe",
         cancellationToken: cancellationToken);
+
+        InsertRecipe(recipeName, ingredientList);
+
+        Message RecipeSuccessResponse = await botClient.SendTextMessageAsync(
+        chatId: chatId,
+        text: "Recipe Added",
+        cancellationToken: cancellationToken);
+
+
+
     }
     else
     {
@@ -79,6 +98,19 @@ async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, Cancel
 
 }
 
+void InsertIngredients(List<string> ingredientList)
+{
+    var ingredientInstanceInstantiator = new MealPlannerBot.DataAccess();
+
+    ingredientInstanceInstantiator.InsertIngredients(ingredientList);
+}
+
+void InsertRecipe(string recipeName, List<string> ingredientList)
+{
+    var recipeInstanceInstantiator = new MealPlannerBot.DataAccess();
+
+    recipeInstanceInstantiator.InsertRecipe(recipeName, ingredientList);
+}
 Task HandleErrorAsync(ITelegramBotClient botClient, Exception exception, CancellationToken cancellationToken)
 {
     var ErrorMessage = exception switch
@@ -91,3 +123,4 @@ Task HandleErrorAsync(ITelegramBotClient botClient, Exception exception, Cancell
     Console.WriteLine(ErrorMessage);
     return Task.CompletedTask;
 }
+
