@@ -12,6 +12,11 @@ using static MealPlannerBot.DataAccess;
 var botClient = new TelegramBotClient(token : ConfigurationManager.AppSettings["BotToken"]);    
 using var cts = new CancellationTokenSource();
 
+const string incorrectAddRecipeFormatMessage = "Incorrect format, please stick to RecipeName - Ingredient1, Ingredient2, Ingredient3 when using AddRecipe Command";
+const string ingredientAdditionConfirmation = "Adding Ingredients.";
+const string recipeAdditionConfirmation = "Adding Recipe";
+const string recipeAdditionCompletion = "Recipe Added.";
+const string recipeAlreadyAdded = "Recipe Already in collection";
 
 var receiverOptions = new ReceiverOptions
 {
@@ -48,49 +53,48 @@ async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, Cancel
     if (messageText.StartsWith("/addrecipe"))
     {
         var recipeStringArray = messageText.Substring(10).Split('-');
+
+        var ingredientInstanceInstantiator = new MealPlannerBot.DataAccess();
+
+        ingredientInstanceInstantiator.GetIngredientID(" ");
         
         if (recipeStringArray.Length > 2 || messageText == "/addrecipe")
         {
-            Message IncorrectAddRecipeResponse = await botClient.SendTextMessageAsync(
-            chatId: chatId,
-            text: "Incorrect format, please stick to RecipeName - Ingredient1, Ingredient2, Ingredient3 when using AddRecipe Command",
-            cancellationToken: cancellationToken);
-            return;
+            await SendMessageAsync(incorrectAddRecipeFormatMessage, chatId, cancellationToken);
         }
 
         var recipeName = recipeStringArray[0];
         var ingredientList = recipeStringArray[1].Split(',').ToList();
+        
+        if (ValidateRecipeName (recipeName) == 0)
+        {
+            await SendMessageAsync(ingredientAdditionConfirmation, chatId, cancellationToken);
 
-        Message AddIngredientResponse = await botClient.SendTextMessageAsync(
-        chatId: chatId,
-        text: "Adding Ingredients",
-        cancellationToken: cancellationToken);
+            InsertIngredients(ingredientList);
 
-        InsertIngredients(ingredientList);
+            await SendMessageAsync(recipeAdditionConfirmation, chatId, cancellationToken);
 
-        Message AddRecipeResponse = await botClient.SendTextMessageAsync(
-        chatId: chatId,
-        text: "Adding Recipe",
-        cancellationToken: cancellationToken);
+            InsertRecipe(recipeName, ingredientList);
 
-        InsertRecipe(recipeName, ingredientList);
+            await SendMessageAsync(recipeAdditionCompletion, chatId, cancellationToken);
 
-        Message RecipeSuccessResponse = await botClient.SendTextMessageAsync(
-        chatId: chatId,
-        text: "Recipe Added",
-        cancellationToken: cancellationToken);
+        }
+        else
+        {
+            await SendMessageAsync(recipeAlreadyAdded, chatId, cancellationToken);
+            
+        }
+
+
 
 
 
     }
     else
     {
-        Console.WriteLine($"Received a '{messageText}' message in chat {chatId}. from user {username}");
+        var sendmessage = $"Received a '{messageText}' message in chat {chatId}. from user {username}";
 
-        Message sentMessage = await botClient.SendTextMessageAsync(
-        chatId: chatId,
-        text: "You said:\n" + messageText,
-        cancellationToken: cancellationToken);
+        await SendMessageAsync(sendmessage, chatId, cancellationToken);
 
     }
 
@@ -111,6 +115,15 @@ void InsertRecipe(string recipeName, List<string> ingredientList)
 
     recipeInstanceInstantiator.InsertRecipe(recipeName, ingredientList);
 }
+
+int ValidateRecipeName(string recipeName)
+{
+    
+    var recipevalidationInstantiator = new MealPlannerBot.DataAccess();
+
+    return recipevalidationInstantiator.GetRecipeID(recipeName);
+
+}
 Task HandleErrorAsync(ITelegramBotClient botClient, Exception exception, CancellationToken cancellationToken)
 {
     var ErrorMessage = exception switch
@@ -123,4 +136,16 @@ Task HandleErrorAsync(ITelegramBotClient botClient, Exception exception, Cancell
     Console.WriteLine(ErrorMessage);
     return Task.CompletedTask;
 }
+
+async Task SendMessageAsync (string message, ChatId chatId,CancellationToken cancellationToken )
+{
+        Message sentMessage = await botClient.SendTextMessageAsync(
+        chatId: chatId,
+        text: message,
+        cancellationToken: cancellationToken);
+}
+
+
+
+
 
