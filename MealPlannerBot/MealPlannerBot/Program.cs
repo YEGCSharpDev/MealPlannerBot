@@ -85,9 +85,10 @@ async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, Cancel
             
         }
 
-
-
-
+    }
+    else if(messageText.StartsWith("/generatemealplan"))
+    {
+        
 
     }
     else
@@ -95,7 +96,6 @@ async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, Cancel
         var sendmessage = $"Received a '{messageText}' message in chat {chatId}. from user {username}";
 
         await SendMessageAsync(sendmessage, chatId, cancellationToken);
-
     }
 
 
