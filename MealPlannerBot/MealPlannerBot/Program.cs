@@ -7,7 +7,9 @@ using Telegram.Bot.Extensions.Polling;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using System.Configuration;
-using static MealPlannerBot.DataAccess;
+using MealPlannerBot;
+using System.Text;
+using System.Globalization;
 
 var botClient = new TelegramBotClient(token : ConfigurationManager.AppSettings["BotToken"]);    
 using var cts = new CancellationTokenSource();
@@ -17,6 +19,7 @@ const string ingredientAdditionConfirmation = "Adding Ingredients.";
 const string recipeAdditionConfirmation = "Adding Recipe";
 const string recipeAdditionCompletion = "Recipe Added.";
 const string recipeAlreadyAdded = "Recipe Already in collection";
+var dataAccessInstanceInstantiator = new MealPlannerBot.DataAccess();
 
 var receiverOptions = new ReceiverOptions
 {
@@ -88,7 +91,38 @@ async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, Cancel
     }
     else if(messageText.StartsWith("/generatemealplan"))
     {
-        
+        //yyyy-mm-dd
+        if (messageText.Length > 17)
+        {
+            string? messageTextArray = messageText.Substring(17).Trim();
+
+            DateTime planStartDate = GetNextSunday(messageTextArray);
+
+            List<Recipe>? recipelist = GetAllRecipes();
+
+            Random rand = new Random();
+
+            var shuffledrecipelist = recipelist.OrderByDescending(recipe => rand.Next(recipelist.Count)).Take(15).ToList();
+
+            var plannedmeallist = GenerateMealPlan (shuffledrecipelist,planStartDate);
+
+            var sendingmessage = new StringBuilder();
+
+            foreach (var meal in plannedmeallist)
+            {
+                DateOnly mealdate = DateOnly.FromDateTime(meal.mealDate);
+
+
+                string? mealinformation = string.Concat(mealdate, "(", meal.mealDate.DayOfWeek.ToString().Substring(0,2),") ", " : ", meal.mealTiming, " - ", meal.RecipeName);
+
+                sendingmessage.AppendLine(mealinformation);
+
+            }
+
+            await SendMessageAsync(sendingmessage.ToString(), chatId, cancellationToken);
+
+        }
+
 
     }
     else
@@ -100,6 +134,53 @@ async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, Cancel
 
 
 
+}
+
+List <MealPlan> GenerateMealPlan(List<Recipe> recipelist, DateTime planstartdate)
+{
+    var mealplanlist = new List<MealPlan>();
+
+    for (int i = 0; i < 15; i++)
+    {
+        if ((i == 6) || (i == 13))
+        {
+            mealplanlist.Add(new MealPlan
+            {
+                RecipeName = "Pongal",
+                mealDate = planstartdate.AddDays(i),
+                mealTiming = "Lunch"
+
+            });
+        }
+
+        else if ((i != 5) && (i != 12))
+        {
+            mealplanlist.Add(new MealPlan
+            {
+                RecipeName = recipelist[i].RecipeName,
+                mealDate = planstartdate.AddDays(i),
+                mealTiming = "Dinner"
+            });
+
+            mealplanlist.Add(new MealPlan
+            {
+                RecipeName = recipelist[i].RecipeName,
+                mealDate = planstartdate.AddDays(i+1),
+                mealTiming = "Lunch"
+            });
+        }
+
+
+    }
+
+    return mealplanlist;
+}
+
+List<Recipe> GetAllRecipes()
+{
+    var recipeList = dataAccessInstanceInstantiator.GetallRecipes();
+
+    return recipeList;
 }
 
 void InsertIngredients(List<string> ingredientList)
@@ -145,7 +226,18 @@ async Task SendMessageAsync (string message, ChatId chatId,CancellationToken can
         cancellationToken: cancellationToken);
 }
 
+DateTime GetNextSunday(string? messageText)
+{
+    var startdate = DateTime.Now;
 
+    if (messageText[1].ToString() != String.Empty)
+    {
+        startdate = DateTime.Parse(messageText.ToString().Trim());
+    }
+    
+    var integerday = (int)startdate.DayOfWeek;
 
+    var nearestSunday = integerday == 0 ? startdate : startdate.AddDays(7 - integerday);
 
-
+    return nearestSunday;
+}
