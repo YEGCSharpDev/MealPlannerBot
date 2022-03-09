@@ -140,7 +140,17 @@ List <MealPlan> GenerateMealPlan(List<Recipe> recipelist, DateTime planstartdate
 {
     var mealplanlist = new List<MealPlan>();
 
-    for (int i = 0; i < 15; i++)
+    try
+    {
+
+    }
+    catch (Exception)
+    {
+
+        
+    }
+
+    for (int i = 0; i < recipelist.Count; i++)
     {
         if ((i == 6) || (i == 13))
         {
@@ -155,6 +165,7 @@ List <MealPlan> GenerateMealPlan(List<Recipe> recipelist, DateTime planstartdate
 
         else if ((i != 5) && (i != 12))
         {
+            
             mealplanlist.Add(new MealPlan
             {
                 RecipeName = recipelist[i].RecipeName,
@@ -162,6 +173,7 @@ List <MealPlan> GenerateMealPlan(List<Recipe> recipelist, DateTime planstartdate
                 mealTiming = "Dinner"
             });
 
+            if (i != 14)
             mealplanlist.Add(new MealPlan
             {
                 RecipeName = recipelist[i].RecipeName,
