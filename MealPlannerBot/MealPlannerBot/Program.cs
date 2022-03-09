@@ -19,6 +19,7 @@ const string ingredientAdditionConfirmation = "Adding Ingredients.";
 const string recipeAdditionConfirmation = "Adding Recipe";
 const string recipeAdditionCompletion = "Recipe Added.";
 const string recipeAlreadyAdded = "Recipe Already in collection";
+const string mealPlanFormatIncorrect = "add yyyy-mm-dd date after generatemealplan keyword";
 var dataAccessInstanceInstantiator = new MealPlannerBot.DataAccess();
 
 var receiverOptions = new ReceiverOptions
@@ -108,12 +109,16 @@ async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, Cancel
 
             var sendingmessage = new StringBuilder();
 
+            sendingmessage.AppendLine("Here is the Meal Plan : ");
+
+            sendingmessage.AppendLine(Environment.NewLine);
+
             foreach (var meal in plannedmeallist)
             {
                 DateOnly mealdate = DateOnly.FromDateTime(meal.mealDate);
 
 
-                string? mealinformation = string.Concat(mealdate, "(", meal.mealDate.DayOfWeek.ToString().Substring(0,2),") ", " : ", meal.mealTiming, " - ", meal.RecipeName);
+                string? mealinformation = string.Concat(mealdate, "(", meal.mealDate.DayOfWeek.ToString().Substring(0,2),") ", " : ", meal.mealTiming, " - ", meal.recipe.RecipeName);
 
                 sendingmessage.AppendLine(mealinformation);
 
@@ -121,6 +126,38 @@ async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, Cancel
 
             await SendMessageAsync(sendingmessage.ToString(), chatId, cancellationToken);
 
+            var ingredientlist = new List<String>();
+
+            foreach (var meal in plannedmeallist)
+            {
+                foreach (var ingredient in meal.recipe.Ingredients)
+                {
+                    ingredientlist.Add(ingredient.IngredientName);
+                }
+
+            }
+
+            ingredientlist = ingredientlist.Distinct().ToList();
+
+            sendingmessage = new StringBuilder();
+
+            sendingmessage.AppendLine("Here is the Ingredient List : ");
+
+            sendingmessage.AppendLine(Environment.NewLine);
+
+            foreach (var item in ingredientlist)
+            {
+                sendingmessage.AppendLine(item);
+
+            }
+
+            await SendMessageAsync(sendingmessage.ToString(), chatId, cancellationToken);
+
+        }
+
+        else
+        {
+            await SendMessageAsync(mealPlanFormatIncorrect, chatId, cancellationToken);
         }
 
 
@@ -140,31 +177,45 @@ List <MealPlan> GenerateMealPlan(List<Recipe> recipelist, DateTime planstartdate
 {
     var mealplanlist = new List<MealPlan>();
 
-    for (int i = 0; i < 15; i++)
+
+    for (int i = 0; i < recipelist.Count; i++)
     {
         if ((i == 6) || (i == 13))
         {
             mealplanlist.Add(new MealPlan
             {
-                RecipeName = "Pongal",
+                recipe = new Recipe
+                {
+                    RecipeName = "Pongal",
+                    Ingredients = new List<Recipe.Ingredient>()
+                    {
+                        new Recipe.Ingredient
+                        {
+                            IngredientID = 1,
+                            IngredientName = "Cumin"
+                        }
+                    }
+                },
                 mealDate = planstartdate.AddDays(i),
                 mealTiming = "Lunch"
 
-            });
+            }) ;
         }
 
         else if ((i != 5) && (i != 12))
         {
+            
             mealplanlist.Add(new MealPlan
             {
-                RecipeName = recipelist[i].RecipeName,
+                recipe = recipelist[i],
                 mealDate = planstartdate.AddDays(i),
                 mealTiming = "Dinner"
             });
 
+            if (i != 14)
             mealplanlist.Add(new MealPlan
             {
-                RecipeName = recipelist[i].RecipeName,
+                recipe = recipelist[i],
                 mealDate = planstartdate.AddDays(i+1),
                 mealTiming = "Lunch"
             });
